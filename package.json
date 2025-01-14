@@ -1,0 +1,29 @@
+{
+  "name": "anis-threading",
+  "version": "1.0.0",
+  "description": "appointment scheduling and combo management for a salon",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bvspr1309/Anis-Threading.git"
+  },
+  "keywords": [
+    "appointment-scheduling",
+    "combo-management",
+    "sms-notification"
+  ],
+  "author": "bvspr",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bvspr1309/Anis-Threading/issues"
+  },
+  "homepage": "https://github.com/bvspr1309/Anis-Threading#readme",
+  "dependencies": {
+    "express": "^4.21.2",
+    "sqlite3": "^5.1.7",
+    "twilio": "^5.4.2"
+  }
+}
