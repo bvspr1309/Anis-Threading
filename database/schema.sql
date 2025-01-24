@@ -30,6 +30,37 @@ CREATE TABLE IF NOT EXISTS combo_types (
 );
 
 -- ============================
+-- Preload Combos
+-- ============================
+INSERT INTO combo_types (name, services, total_uses) VALUES
+('Eyebrow Threading Combo', 'Eyebrow Threading', 5),
+('Lip, Chin, Forehead Threading Combo', 'Lip, Chin Threading, Forehead', 5),
+('Sideburns, Cheeks Threading Combo', 'Sideburns, Cheeks', 5),
+('Full Face Threading Combo', 'Full face Threading', 5),
+('Ear, Nose Waxing Combo', 'Ear, Nose Waxing', 5),
+('Full Leg Waxing Combo', 'Full Leg Waxing', 5),
+('Half Leg Waxing Combo', 'Half Leg Waxing', 5),
+('Full Arm Waxing Combo', 'Full Arm Waxing', 5),
+('Half Arm Waxing Combo', 'Half Arm Waxing', 5),
+('Under Arm Waxing Combo', 'Under Arm Waxing', 5),
+('Bikini Waxing Combo', 'Bikini Waxing', 5),
+('Brazilian Waxing Combo', 'Brazilian Waxing', 5),
+('Stomach Waxing Combo', 'Stomach Waxing', 5),
+('Back Waxing Combo', 'Back Waxing', 5),
+('Full Body Waxing Combo', 'Full Body Waxing', 5),
+('Express Facial Combo', 'Express Facial', 5),
+('Acne Facial', 'Acne Facial', 5),
+('Shehnaz Gold Facial', 'Shehnaz Gold Facial', 5),
+('Anis Signature Facial', 'Anis Signature Facial', 5),
+('Ayurveda Haldi Chandan Facial', 'Ayurveda Haldi Chandan Facial', 5),
+('Microdermabrasion Facial', 'Microdermabrasion Facial', 5),
+('Hydra Facial', 'Hydra Facial', 5),
+('Radio Frequency Treatment', 'Radio Frequency Treatment', 5),
+('Teen Clean Facial', 'Teen Clean Facial', 5),
+('Herbal Pearl Glow Facial', 'Herbal Pearl Glow Facial', 5),
+('Classic Soothing Regular Facial', 'Classic Soothing Regular Facial', 5);
+
+-- ============================
 -- Appointments Table
 -- ============================
 CREATE TABLE IF NOT EXISTS appointments (
