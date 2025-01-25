@@ -4,6 +4,18 @@ import sqlite3
 DB_PATH = 'database/business.db'
 
 # ============================
+# Helper Function
+# ============================
+
+def get_db_connection():
+    """
+    Provides a single database connection with timeout.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=5)
+    conn.row_factory = sqlite3.Row  # Makes query results more readable
+    return conn
+
+# ============================
 # Appointment Management
 # ============================
 
@@ -22,7 +34,7 @@ def book_appointment(customer_id, service, date, start_time, end_time, combo_id=
     Returns:
         bool: True if the appointment was booked successfully, False otherwise.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         # Check for overlapping appointments
@@ -63,7 +75,7 @@ def get_customer_appointments(customer_id):
     Returns:
         list of tuples: List of appointments (id, customer_id, service, date, start_time, end_time, combo_id).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -88,7 +100,7 @@ def get_appointment_by_date(date):
     Returns:
         list of tuples: List of appointments (id, customer_id, service, date, start_time, end_time, combo_id).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -113,7 +125,7 @@ def delete_appointment(appointment_id):
     Returns:
         bool: True if the appointment was deleted successfully, False otherwise.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
@@ -143,7 +155,7 @@ def update_appointment_date_and_time(appointment_id, new_date, new_start_time, n
     Returns:
         bool: True if the update was successful, False otherwise.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         # Check for overlapping appointments

@@ -36,7 +36,7 @@ INSERT INTO combo_types (name, services, total_uses) VALUES
 ('Eyebrow Threading Combo', 'Eyebrow Threading', 5),
 ('Lip, Chin, Forehead Threading Combo', 'Lip, Chin Threading, Forehead', 5),
 ('Sideburns, Cheeks Threading Combo', 'Sideburns, Cheeks', 5),
-('Full Face Threading Combo', 'Full face Threading', 5),
+('Full Face Threading Combo', 'Full Face Threading', 5),
 ('Ear, Nose Waxing Combo', 'Ear, Nose Waxing', 5),
 ('Full Leg Waxing Combo', 'Full Leg Waxing', 5),
 ('Half Leg Waxing Combo', 'Half Leg Waxing', 5),

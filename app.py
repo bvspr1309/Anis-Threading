@@ -33,7 +33,7 @@ elif choice == "Customer Management":
     st.write("### Add a New Customer with Combo")
     name = st.text_input("Customer Name")
     phone = st.text_input("Phone Number")
-    
+
     # Dropdown to select a combo type
     combo_types = get_combo_types()
     if combo_types:
@@ -44,7 +44,7 @@ elif choice == "Customer Management":
         st.warning("No combo types available. Please add combos in the Combo Management tab.")
         selected_combo_id = None
 
-    if st.button("Add Customer"):
+    if st.button("Add Customer with Combo"):
         if selected_combo_id and add_customer(name, phone, selected_combo_id):
             st.success(f"Customer '{name}' added successfully with combo '{selected_combo}'!")
         else:

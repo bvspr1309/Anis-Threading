@@ -4,6 +4,18 @@ import sqlite3
 DB_PATH = 'database/business.db'
 
 # ============================
+# Helper Function
+# ============================
+
+def get_db_connection():
+    """
+    Provides a single database connection with timeout.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.row_factory = sqlite3.Row  # Makes query results more readable
+    return conn
+
+# ============================
 # Combo Types Management
 # ============================
 
@@ -19,7 +31,7 @@ def add_combo_type(name, services, total_uses):
     Returns:
         bool: True if the combo type was added successfully, False otherwise.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -45,7 +57,7 @@ def get_combo_types():
     Returns:
         list of tuples: List of combo types (id, name, services, total_uses).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT * FROM combo_types")
@@ -67,7 +79,7 @@ def delete_combo_type(combo_type_id):
     Returns:
         bool: True if the combo type was deleted successfully, False otherwise.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM combo_types WHERE id = ?", (combo_type_id,))
@@ -90,39 +102,38 @@ def delete_combo_type(combo_type_id):
 
 def add_combo(customer_id, combo_type_id):
     """
-    Assigns a combo to a customer based on the selected combo type.
-
-    Args:
-        customer_id (int): The ID of the customer purchasing the combo.
-        combo_type_id (int): The ID of the combo type being purchased.
-
-    Returns:
-        bool: True if the combo was added successfully, False otherwise.
+    Assigns a combo to a customer with retries in case of database lock.
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    try:
-        # Retrieve total uses from the combo_types table
-        cursor.execute("SELECT total_uses FROM combo_types WHERE id = ?", (combo_type_id,))
-        result = cursor.fetchone()
-        if not result:
-            print(f"Error: Combo type ID {combo_type_id} does not exist.")
-            return False
-        total_uses = result[0]
+    retries = 3  # Number of retries
+    for attempt in range(retries):
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=30)
+            print("Opening connection in add_combo")
+            cursor = conn.cursor()
 
-        # Add combo to the combos table
-        cursor.execute(
-            "INSERT INTO combos (customer_id, combo_type_id, remaining_uses) VALUES (?, ?, ?)",
-            (customer_id, combo_type_id, total_uses)
-        )
-        conn.commit()
-        print(f"Combo for customer ID {customer_id} added successfully!")
-        return True
-    except Exception as e:
-        print(f"Error adding combo: {e}")
-        return False
-    finally:
-        conn.close()
+            # Retrieve total uses from the combo_types table
+            cursor.execute("SELECT total_uses FROM combo_types WHERE id = ?", (combo_type_id,))
+            result = cursor.fetchone()
+            if not result:
+                print(f"Error: Combo type ID {combo_type_id} does not exist.")
+                return False
+            total_uses = result[0]
+
+            # Add combo to the combos table
+            cursor.execute(
+                "INSERT INTO combos (customer_id, combo_type_id, remaining_uses) VALUES (?, ?, ?)",
+                (customer_id, combo_type_id, total_uses)
+            )
+            conn.commit()
+            print(f"Combo for customer ID {customer_id} added successfully!")
+            return True
+        except sqlite3.OperationalError as e:
+            print(f"Database lock error in add_combo (attempt {attempt + 1}/{retries}): {e}")
+            if attempt == retries - 1:  # On last attempt, re-raise the error
+                raise
+        finally:
+            conn.close()
+            print("Closing connection in add_combo")
 
 def get_customer_combos(customer_id):
     """
@@ -134,7 +145,7 @@ def get_customer_combos(customer_id):
     Returns:
         list of tuples: List of active combos (id, customer_id, combo_type_id, remaining_uses).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -162,7 +173,7 @@ def update_combo_usage(combo_id):
     Returns:
         bool: True if the update was successful, False otherwise.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -192,7 +203,7 @@ def get_combo_status(combo_id):
     Returns:
         tuple: Combo details (id, customer_id, combo_type_id, remaining_uses) if found, otherwise None.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
