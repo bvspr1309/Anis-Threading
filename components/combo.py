@@ -100,40 +100,41 @@ def delete_combo_type(combo_type_id):
 # Customer Combo Management
 # ============================
 
-def add_combo(customer_id, combo_type_id):
+def add_combo(customer_id, combo_type_id, conn=None):
     """
-    Assigns a combo to a customer with retries in case of database lock.
+    Assigns a combo to a customer using a shared connection if provided.
     """
-    retries = 3  # Number of retries
-    for attempt in range(retries):
-        try:
-            conn = sqlite3.connect(DB_PATH, timeout=30)
-            print("Opening connection in add_combo")
-            cursor = conn.cursor()
+    should_close_connection = False
+    if conn is None:
+        conn = sqlite3.connect(DB_PATH, timeout=30)
+        should_close_connection = True
 
-            # Retrieve total uses from the combo_types table
-            cursor.execute("SELECT total_uses FROM combo_types WHERE id = ?", (combo_type_id,))
-            result = cursor.fetchone()
-            if not result:
-                print(f"Error: Combo type ID {combo_type_id} does not exist.")
-                return False
-            total_uses = result[0]
+    print("Opening connection in add_combo")
+    cursor = conn.cursor()
+    try:
+        # Retrieve total uses from the combo_types table
+        cursor.execute("SELECT total_uses FROM combo_types WHERE id = ?", (combo_type_id,))
+        result = cursor.fetchone()
+        if not result:
+            print(f"Error: Combo type ID {combo_type_id} does not exist.")
+            return False
+        total_uses = result[0]  # Access the first value of the tuple
 
-            # Add combo to the combos table
-            cursor.execute(
-                "INSERT INTO combos (customer_id, combo_type_id, remaining_uses) VALUES (?, ?, ?)",
-                (customer_id, combo_type_id, total_uses)
-            )
-            conn.commit()
-            print(f"Combo for customer ID {customer_id} added successfully!")
-            return True
-        except sqlite3.OperationalError as e:
-            print(f"Database lock error in add_combo (attempt {attempt + 1}/{retries}): {e}")
-            if attempt == retries - 1:  # On last attempt, re-raise the error
-                raise
-        finally:
+        # Add combo to the combos table
+        cursor.execute(
+            "INSERT INTO combos (customer_id, combo_type_id, remaining_uses) VALUES (?, ?, ?)",
+            (customer_id, combo_type_id, total_uses)
+        )
+        print(f"Combo for customer ID {customer_id} added successfully!")
+        return True
+    except Exception as e:
+        print(f"Error adding combo: {e}")
+        return False
+    finally:
+        if should_close_connection:
             conn.close()
             print("Closing connection in add_combo")
+
 
 def get_customer_combos(customer_id):
     """

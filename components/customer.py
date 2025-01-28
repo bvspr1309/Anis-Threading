@@ -40,8 +40,8 @@ def add_customer(name, phone, combo_type_id):
         cursor.execute("INSERT INTO customers (name, phone) VALUES (?, ?)", (name, phone))
         customer_id = cursor.lastrowid  # Get the newly created customer's ID
 
-        # Add the combo for the customer
-        if not add_combo(customer_id, combo_type_id):
+        # Add the combo for the customer using the same connection
+        if not add_combo(customer_id, combo_type_id, conn):
             raise Exception("Failed to add combo for the customer.")
 
         conn.commit()
