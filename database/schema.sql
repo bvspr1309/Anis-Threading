@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS combo_types (
 -- ============================
 INSERT INTO combo_types (name, services, total_uses) VALUES
 ('Eyebrow Threading Combo', 'Eyebrow Threading', 5),
-('Lip, Chin, Forehead Threading Combo', 'Lip, Chin Threading, Forehead', 5),
-('Sideburns, Cheeks Threading Combo', 'Sideburns, Cheeks', 5),
+('Lip or Chin or Forehead Threading Combo', 'Lip Threading, Chin Threading, Forehead Threading', 5),
+('Sideburns or Cheeks Threading Combo', 'Sideburns Threading, Cheeks Threading', 5),
 ('Full Face Threading Combo', 'Full Face Threading', 5),
-('Ear, Nose Waxing Combo', 'Ear, Nose Waxing', 5),
+('Ear or Nose Waxing Combo', 'Ear Waxing, Nose Waxing', 5),
 ('Full Leg Waxing Combo', 'Full Leg Waxing', 5),
 ('Half Leg Waxing Combo', 'Half Leg Waxing', 5),
 ('Full Arm Waxing Combo', 'Full Arm Waxing', 5),
@@ -49,16 +49,16 @@ INSERT INTO combo_types (name, services, total_uses) VALUES
 ('Back Waxing Combo', 'Back Waxing', 5),
 ('Full Body Waxing Combo', 'Full Body Waxing', 5),
 ('Express Facial Combo', 'Express Facial', 5),
-('Acne Facial', 'Acne Facial', 5),
-('Shehnaz Gold Facial', 'Shehnaz Gold Facial', 5),
-('Anis Signature Facial', 'Anis Signature Facial', 5),
-('Ayurveda Haldi Chandan Facial', 'Ayurveda Haldi Chandan Facial', 5),
-('Microdermabrasion Facial', 'Microdermabrasion Facial', 5),
-('Hydra Facial', 'Hydra Facial', 5),
-('Radio Frequency Treatment', 'Radio Frequency Treatment', 5),
-('Teen Clean Facial', 'Teen Clean Facial', 5),
-('Herbal Pearl Glow Facial', 'Herbal Pearl Glow Facial', 5),
-('Classic Soothing Regular Facial', 'Classic Soothing Regular Facial', 5);
+('Acne Facial Combo', 'Acne Facial', 5),
+('Shehnaz Gold Facial Combo', 'Shehnaz Gold Facial', 5),
+('Anis Signature Facial Combo', 'Anis Signature Facial', 5),
+('Ayurveda Haldi Chandan Facial Combo', 'Ayurveda Haldi Chandan Facial', 5),
+('Microdermabrasion Facial Combo', 'Microdermabrasion Facial', 5),
+('Hydra Facial Combo', 'Hydra Facial', 5),
+('Radio Frequency Treatment Combo', 'Radio Frequency Treatment', 5),
+('Teen Clean Facial Combo', 'Teen Clean Facial', 5),
+('Herbal Pearl Glow Facial Combo', 'Herbal Pearl Glow Facial', 5),
+('Classic Soothing Regular Facial Combo', 'Classic Soothing Regular Facial', 5);
 
 -- ============================
 -- Appointments Table
