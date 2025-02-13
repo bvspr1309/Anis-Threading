@@ -1,35 +1,32 @@
 import sqlite3
-from components.combo import update_combo_usage, get_db_connection
+from components.combo import update_combo_usage, get_customer_combos, get_db_connection
 
 # ============================
 # Appointment Management
 # ============================
 
-def book_appointment(customer_id, service_id, date, combo_id=None):
-    """
-    Books an appointment for a customer and optionally links it to a combo.
-
-    Args:
-        customer_id (int): The ID of the customer booking the appointment.
-        service_id (int): The ID of the service being booked.
-        date (str): The date of the appointment in 'YYYY-MM-DD' format.
-        combo_id (int, optional): The ID of the combo being used.
-
-    Returns:
-        bool: True if successfully booked, False otherwise.
-    """
+def book_appointment(customer_id, service_id, date, use_combo=False, combo_id=None):
+    """Books an appointment for a customer and optionally links it to a combo."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        # Ensure the combo is valid if using it
+        if use_combo and combo_id:
+            cursor.execute("SELECT remaining_uses FROM combos WHERE id = ? AND remaining_uses > 0", (combo_id,))
+            combo = cursor.fetchone()
+            if not combo:
+                print(f"Error: Combo ID {combo_id} is not valid or has no remaining uses.")
+                return False
+
         # Insert appointment into the database
         cursor.execute(
             "INSERT INTO appointments (customer_id, service_id, date, combo_id) VALUES (?, ?, ?, ?)",
-            (customer_id, service_id, date, combo_id)
+            (customer_id, service_id, date, combo_id if use_combo else None)
         )
 
-        # If using a combo, decrement remaining uses
-        if combo_id:
-            update_combo_usage(combo_id)
+        # If using a combo, decrement remaining uses using the **same** connection
+        if use_combo and combo_id:
+            update_combo_usage(combo_id, conn)  # Pass the same connection
 
         conn.commit()
         print(f"Appointment booked for Customer ID {customer_id} on {date} (Service ID {service_id}).")
@@ -39,6 +36,7 @@ def book_appointment(customer_id, service_id, date, combo_id=None):
         return False
     finally:
         conn.close()
+
 
 def get_customer_appointments(customer_id):
     """

@@ -171,9 +171,13 @@ def get_customer_combos(customer_id):
     finally:
         conn.close()
 
-def update_combo_usage(combo_id):
+def update_combo_usage(combo_id, conn=None):
     """Decreases the remaining uses of a combo by 1."""
-    conn = get_db_connection()
+    should_close_connection = False
+    if conn is None:
+        conn = get_db_connection()
+        should_close_connection = True
+
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -181,8 +185,9 @@ def update_combo_usage(combo_id):
             (combo_id,)
         )
         conn.commit()
+
         if cursor.rowcount > 0:
-            print(f"Combo ID {combo_id} usage updated successfully!")
+            print(f"Debug: Combo ID {combo_id} usage updated successfully!")
             return True
         else:
             print(f"Error: Combo ID {combo_id} has no remaining uses or does not exist.")
@@ -191,4 +196,5 @@ def update_combo_usage(combo_id):
         print(f"Error updating combo usage: {e}")
         return False
     finally:
-        conn.close()
+        if should_close_connection:
+            conn.close()

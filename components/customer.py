@@ -91,23 +91,39 @@ def get_all_customers():
     finally:
         conn.close()
 
-def edit_customer(customer_id, new_name, new_phone):
-    """Edits a customer's name and phone number."""
+def edit_customer(customer_id, new_name, new_remaining_uses):
+    """Edits a customer's name and updates their remaining combo uses, but keeps phone number fixed."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "UPDATE customers SET name = ?, phone = ? WHERE id = ?",
-            (new_name, new_phone, customer_id)
-        )
-        conn.commit()
-        
-        if cursor.rowcount == 0:
-            print(f"Error: Customer ID {customer_id} not found or no changes made.")
+        # Ensure customer exists
+        cursor.execute("SELECT name FROM customers WHERE id = ?", (customer_id,))
+        customer = cursor.fetchone()
+
+        if not customer:
+            print(f"Error: Customer ID {customer_id} not found.")
             return False
 
+        # Perform the update (phone number is NOT updated)
+        cursor.execute(
+            """UPDATE customers 
+               SET name = ? 
+               WHERE id = ?""",
+            (new_name, customer_id)
+        )
+
+        # Update remaining uses in combos
+        cursor.execute(
+            """UPDATE combos 
+               SET remaining_uses = ? 
+               WHERE customer_id = ?""",
+            (new_remaining_uses, customer_id)
+        )
+
+        conn.commit()
         print(f"Customer ID {customer_id} updated successfully!")
         return True
+
     except Exception as e:
         print(f"Error updating customer: {e}")
         return False
@@ -115,23 +131,32 @@ def edit_customer(customer_id, new_name, new_phone):
         conn.close()
 
 def delete_customer(customer_id):
-    """Deletes a customer ONLY if they have no active combos."""
+    """Deletes a customer and all related records (appointments, combos)."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Check if the customer has active combos
-        cursor.execute("SELECT COUNT(*) FROM combos WHERE customer_id = ? AND remaining_uses > 0", (customer_id,))
-        active_combos = cursor.fetchone()[0]
-
-        if active_combos > 0:
-            print(f"Error: Cannot delete customer ID {customer_id} because they have active combos.")
+        # Ensure customer exists
+        cursor.execute("SELECT id FROM customers WHERE id = ?", (customer_id,))
+        customer = cursor.fetchone()
+        if not customer:
+            print(f"Error: Customer ID {customer_id} does not exist.")
             return False
 
-        # Delete the customer
+        # Delete all appointments associated with the customer
+        cursor.execute("DELETE FROM appointments WHERE customer_id = ?", (customer_id,))
+        print(f"Deleted all appointments for Customer ID {customer_id}.")
+
+        # Delete all combos associated with the customer
+        cursor.execute("DELETE FROM combos WHERE customer_id = ?", (customer_id,))
+        print(f"Deleted all combos for Customer ID {customer_id}.")
+
+        # Delete customer from the database
         cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
         conn.commit()
+
         print(f"Customer ID {customer_id} deleted successfully!")
         return True
+
     except Exception as e:
         print(f"Error deleting customer: {e}")
         return False
