@@ -1,63 +1,38 @@
 import sqlite3
-
-# Path to the SQLite database file
-DB_PATH = 'database/business.db'
-
-# ============================
-# Helper Function
-# ============================
-
-def get_db_connection():
-    """
-    Provides a single database connection with timeout.
-    """
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row  # Makes query results more readable
-    return conn
+from components.combo import update_combo_usage, get_db_connection
 
 # ============================
 # Appointment Management
 # ============================
 
-def book_appointment(customer_id, service, date, start_time, end_time, combo_id=None):
+def book_appointment(customer_id, service_id, date, combo_id=None):
     """
     Books an appointment for a customer and optionally links it to a combo.
 
     Args:
         customer_id (int): The ID of the customer booking the appointment.
-        service (str): The service being booked (e.g., "Eyebrow Threading").
+        service_id (int): The ID of the service being booked.
         date (str): The date of the appointment in 'YYYY-MM-DD' format.
-        start_time (str): The start time of the appointment in 'HH:MM' format.
-        end_time (str): The end time of the appointment in 'HH:MM' format.
-        combo_id (int): The ID of the combo being used (if applicable).
+        combo_id (int, optional): The ID of the combo being used.
 
     Returns:
-        bool: True if the appointment was booked successfully, False otherwise.
+        bool: True if successfully booked, False otherwise.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Check for overlapping appointments
+        # Insert appointment into the database
         cursor.execute(
-            """SELECT * FROM appointments
-               WHERE date = ? AND (
-                   (start_time < ? AND end_time > ?) OR
-                   (start_time < ? AND end_time > ?)
-               )""",
-            (date, end_time, end_time, start_time, start_time)
+            "INSERT INTO appointments (customer_id, service_id, date, combo_id) VALUES (?, ?, ?, ?)",
+            (customer_id, service_id, date, combo_id)
         )
-        overlapping_appointments = cursor.fetchall()
-        if overlapping_appointments:
-            print(f"Error: Overlapping appointments found for the time range {start_time} - {end_time}.")
-            return False
 
-        # Insert the appointment
-        cursor.execute(
-            "INSERT INTO appointments (customer_id, service, date, start_time, end_time, combo_id) VALUES (?, ?, ?, ?, ?, ?)",
-            (customer_id, service, date, start_time, end_time, combo_id)
-        )
+        # If using a combo, decrement remaining uses
+        if combo_id:
+            update_combo_usage(combo_id)
+
         conn.commit()
-        print(f"Appointment booked for Customer ID {customer_id} on {date} from {start_time} to {end_time}.")
+        print(f"Appointment booked for Customer ID {customer_id} on {date} (Service ID {service_id}).")
         return True
     except Exception as e:
         print(f"Error booking appointment: {e}")
@@ -73,17 +48,26 @@ def get_customer_appointments(customer_id):
         customer_id (int): The ID of the customer.
 
     Returns:
-        list of tuples: List of appointments (id, customer_id, service, date, start_time, end_time, combo_id).
+        list: List of structured appointments.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "SELECT * FROM appointments WHERE customer_id = ? ORDER BY date, start_time",
+            """SELECT a.id, c.name, c.phone, s.name AS service, a.date, a.combo_id
+               FROM appointments a
+               JOIN customers c ON a.customer_id = c.id
+               JOIN services s ON a.service_id = s.id
+               WHERE a.customer_id = ? 
+               ORDER BY a.date""",
             (customer_id,)
         )
         appointments = cursor.fetchall()
-        return appointments
+        return [
+            {"ID": appt["id"], "Name": appt["name"], "Phone": appt["phone"],
+             "Service": appt["service"], "Date": appt["date"], "Combo ID": appt["combo_id"]}
+            for appt in appointments
+        ]
     except Exception as e:
         print(f"Error retrieving appointments: {e}")
         return []
@@ -95,20 +79,29 @@ def get_appointment_by_date(date):
     Retrieves all appointments on a specific date.
 
     Args:
-        date (str): The date to search for appointments (in 'YYYY-MM-DD' format).
+        date (str): The date in 'YYYY-MM-DD' format.
 
     Returns:
-        list of tuples: List of appointments (id, customer_id, service, date, start_time, end_time, combo_id).
+        list: List of structured appointments.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "SELECT * FROM appointments WHERE date = ? ORDER BY start_time",
+            """SELECT a.id, c.name, c.phone, s.name AS service, a.date, a.combo_id
+               FROM appointments a
+               JOIN customers c ON a.customer_id = c.id
+               JOIN services s ON a.service_id = s.id
+               WHERE a.date = ?
+               ORDER BY a.date""",
             (date,)
         )
         appointments = cursor.fetchall()
-        return appointments
+        return [
+            {"ID": appt["id"], "Name": appt["name"], "Phone": appt["phone"],
+             "Service": appt["service"], "Date": appt["date"], "Combo ID": appt["combo_id"]}
+            for appt in appointments
+        ]
     except Exception as e:
         print(f"Error retrieving appointments by date: {e}")
         return []
@@ -117,69 +110,62 @@ def get_appointment_by_date(date):
 
 def delete_appointment(appointment_id):
     """
-    Deletes an appointment by its ID.
+    Deletes an appointment by its ID and restores combo usage if applicable.
 
     Args:
         appointment_id (int): The ID of the appointment to delete.
 
     Returns:
-        bool: True if the appointment was deleted successfully, False otherwise.
+        bool: True if successfully deleted, False otherwise.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        # Retrieve combo_id before deleting the appointment
+        cursor.execute("SELECT combo_id FROM appointments WHERE id = ?", (appointment_id,))
+        result = cursor.fetchone()
+        combo_id = result["combo_id"] if result else None
+
+        # Delete the appointment
         cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
         conn.commit()
-        if cursor.rowcount > 0:
-            print(f"Appointment ID {appointment_id} deleted successfully!")
-            return True
-        else:
-            print(f"No appointment found with ID {appointment_id}.")
-            return False
+
+        # Restore combo usage if an appointment was linked to a combo
+        if combo_id:
+            cursor.execute("UPDATE combos SET remaining_uses = remaining_uses + 1 WHERE id = ?", (combo_id,))
+            conn.commit()
+
+        print(f"Appointment ID {appointment_id} deleted successfully! Combo usage restored if applicable.")
+        return True
     except Exception as e:
         print(f"Error deleting appointment: {e}")
         return False
     finally:
         conn.close()
 
-def update_appointment_date_and_time(appointment_id, new_date, new_start_time, new_end_time):
+def edit_appointment(appointment_id, new_date, new_service_id):
     """
-    Updates the date and time of an appointment.
+    Updates the date and service of an appointment.
 
     Args:
         appointment_id (int): The ID of the appointment to update.
-        new_date (str): The new date for the appointment (in 'YYYY-MM-DD' format).
-        new_start_time (str): The new start time for the appointment (in 'HH:MM' format).
-        new_end_time (str): The new end time for the appointment (in 'HH:MM' format).
+        new_date (str): The new date for the appointment in 'YYYY-MM-DD' format.
+        new_service_id (int): The new service ID for the appointment.
 
     Returns:
-        bool: True if the update was successful, False otherwise.
+        bool: True if successfully updated, False otherwise.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Check for overlapping appointments
-        cursor.execute(
-            """SELECT * FROM appointments
-               WHERE date = ? AND id != ? AND (
-                   (start_time < ? AND end_time > ?) OR
-                   (start_time < ? AND end_time > ?)
-               )""",
-            (new_date, appointment_id, new_end_time, new_end_time, new_start_time, new_start_time)
-        )
-        overlapping_appointments = cursor.fetchall()
-        if overlapping_appointments:
-            print(f"Error: Overlapping appointments found for the new time range {new_start_time} - {new_end_time}.")
-            return False
-
         # Update the appointment
         cursor.execute(
-            "UPDATE appointments SET date = ?, start_time = ?, end_time = ? WHERE id = ?",
-            (new_date, new_start_time, new_end_time, appointment_id)
+            "UPDATE appointments SET date = ?, service_id = ? WHERE id = ?",
+            (new_date, new_service_id, appointment_id)
         )
         conn.commit()
         if cursor.rowcount > 0:
-            print(f"Appointment ID {appointment_id} updated to new date {new_date} and time {new_start_time} - {new_end_time}.")
+            print(f"Appointment ID {appointment_id} updated to new date {new_date} and service ID {new_service_id}.")
             return True
         else:
             print(f"No appointment found with ID {appointment_id}.")
@@ -189,31 +175,3 @@ def update_appointment_date_and_time(appointment_id, new_date, new_start_time, n
         return False
     finally:
         conn.close()
-
-# ============================
-# Test Functions
-# ============================
-
-if __name__ == "__main__":
-    # Test booking an appointment
-    book_appointment(customer_id=1, service="Eyebrow Threading", date="2025-01-25", start_time="10:00", end_time="10:30", combo_id=1)
-
-    # Test retrieving appointments for a customer
-    print("Appointments for Customer ID 1:")
-    appointments = get_customer_appointments(customer_id=1)
-    for appointment in appointments:
-        print(appointment)
-
-    # Test retrieving appointments by date
-    print("Appointments on 2025-01-25:")
-    print(get_appointment_by_date("2025-01-25"))
-
-    # Test updating an appointment
-    if appointments:
-        appointment_id = appointments[0][0]  # Get the first appointment's ID
-        update_appointment_date_and_time(appointment_id, "2025-01-26", "11:00", "11:30")
-
-    # Test deleting an appointment
-    if appointments:
-        appointment_id = appointments[0][0]
-        delete_appointment(appointment_id)
