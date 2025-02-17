@@ -5,13 +5,13 @@ from components.combo import add_combo, get_customer_combos, get_db_connection
 # Customer Management
 # ============================
 
-def add_customer(name, phone, combo_type_id):
+def add_customer(name, phone, email, combo_type_id):
     """Adds a new customer and assigns an initial combo to them."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         # Add customer to the database
-        cursor.execute("INSERT INTO customers (name, phone) VALUES (?, ?)", (name, phone))
+        cursor.execute("INSERT INTO customers (name, phone, email) VALUES (?, ?, ?)", (name, phone, email))
         customer_id = cursor.lastrowid  # Get the new customer ID
 
         print(f"Debug: Customer '{name}' added with ID {customer_id}")
@@ -24,7 +24,7 @@ def add_customer(name, phone, combo_type_id):
         print(f"Customer '{name}' added successfully with combo type ID {combo_type_id}!")
         return True
     except sqlite3.IntegrityError:
-        print(f"Error: Customer with phone number '{phone}' already exists.")
+        print(f"Error: Customer with phone number '{phone}' or email '{email}' already exists.")
         return False
     except Exception as e:
         print(f"Error adding customer: {e}")
@@ -54,6 +54,7 @@ def get_customer_by_phone(phone):
             "ID": customer_id,
             "Name": customer["name"],
             "Phone": customer["phone"],
+            "Email": customer["email"],
             "Combos": customer_combos  # List of active combos
         }
     except Exception as e:
@@ -81,6 +82,7 @@ def get_all_customers():
                 "ID": customer_id,
                 "Name": customer["name"],
                 "Phone": customer["phone"],
+                "Email": customer["email"],
                 "Combos": customer_combos
             })
 
@@ -91,7 +93,7 @@ def get_all_customers():
     finally:
         conn.close()
 
-def edit_customer(customer_id, new_name, new_remaining_uses):
+def edit_customer(customer_id, new_name, new_email, new_remaining_uses):
     """Edits a customer's name and updates their remaining combo uses, but keeps phone number fixed."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -103,13 +105,21 @@ def edit_customer(customer_id, new_name, new_remaining_uses):
         if not customer:
             print(f"Error: Customer ID {customer_id} not found.")
             return False
+        
+        #check if email already exisits in the system
+        cursor.execute("SELECT id FROM customers WHERE email = ? and id != ?", (new_email, customer_id))
+        existing_customer = cursor.fetchone()
+
+        if existing_customer:
+            print(f"Error: Email '{new_email} is already in use by another customer")
+            return "email_exists"
 
         # Perform the update (phone number is NOT updated)
         cursor.execute(
             """UPDATE customers 
-               SET name = ? 
+               SET name = ?, email = ? 
                WHERE id = ?""",
-            (new_name, customer_id)
+            (new_name, new_email, customer_id)
         )
 
         # Update remaining uses in combos

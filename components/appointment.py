@@ -1,5 +1,7 @@
 import sqlite3
 from components.combo import update_combo_usage, get_customer_combos, get_db_connection
+from components.customer import get_customer_by_phone
+from components.notifications import send_appointment_confirmation, send_appointment_cancellation
 
 # ============================
 # Appointment Management
@@ -28,7 +30,27 @@ def book_appointment(customer_id, service_id, date, use_combo=False, combo_id=No
         if use_combo and combo_id:
             update_combo_usage(combo_id, conn)  # Pass the same connection
 
+        # Fetch updated remaining uses AFTER updating combo
+        remaining_uses = None
+        if use_combo and combo_id:
+            cursor.execute("SELECT remaining_uses FROM combos WHERE id = ?", (combo_id,))
+            updated_combo = cursor.fetchone()
+            remaining_uses = updated_combo["remaining_uses"] if updated_combo else None
+
+        # Fetch customer details
+        customer = get_customer_by_phone(customer_id)
+
         conn.commit()
+
+        if customer and customer["Email"]:  # Ensure email exists before sending
+            send_appointment_confirmation(
+                customer["Name"],
+                customer["Email"],
+                service_id,
+                date,
+                remaining_uses
+            )
+
         print(f"Appointment booked for Customer ID {customer_id} on {date} (Service ID {service_id}).")
         return True
     except Exception as e:
@@ -107,33 +129,65 @@ def get_appointment_by_date(date):
         conn.close()
 
 def delete_appointment(appointment_id):
-    """
-    Deletes an appointment by its ID and restores combo usage if applicable.
-
-    Args:
-        appointment_id (int): The ID of the appointment to delete.
-
-    Returns:
-        bool: True if successfully deleted, False otherwise.
-    """
+    """Deletes an appointment by its ID, restores combo usage if applicable, and sends a cancellation email."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Retrieve combo_id before deleting the appointment
-        cursor.execute("SELECT combo_id FROM appointments WHERE id = ?", (appointment_id,))
+        # Retrieve combo_id, customer_id, service name, and appointment date before deleting the appointment
+        cursor.execute("""
+            SELECT a.customer_id, c.name, c.email, s.name AS service, a.date, a.combo_id 
+            FROM appointments a
+            JOIN customers c ON a.customer_id = c.id
+            JOIN services s ON a.service_id = s.id
+            WHERE a.id = ?
+        """, (appointment_id,)
+        )
+
         result = cursor.fetchone()
-        combo_id = result["combo_id"] if result else None
+
+        if not result:
+            print(f"Error: Appointment ID {appointment_id} not found.")
+            return False
+
+        combo_id = result["combo_id"]
+        customer_id = result["customer_id"]
+        customer_name = result["name"]
+        customer_email = result["email"]
+        service = result["service"]
+        date = result["date"]
+
+        print(f"Debug: Attempting to Delete Combo ID {appointment_id}")
 
         # Delete the appointment
         cursor.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+        if cursor.rowcount == 0:
+            print(f"Error: Failed to Delte Appointment {appointment_id}")
+            return False
         conn.commit()
 
-        # Restore combo usage if an appointment was linked to a combo
+        print(f"Debug: Appointment ID {appointment_id} deleted successfully")
+
+        # Restore combo usage if applicable
+        remaining_uses = None
         if combo_id:
             cursor.execute("UPDATE combos SET remaining_uses = remaining_uses + 1 WHERE id = ?", (combo_id,))
             conn.commit()
 
-        print(f"Appointment ID {appointment_id} deleted successfully! Combo usage restored if applicable.")
+            # Fetch updated remaining uses
+            cursor.execute("SELECT remaining_uses FROM combos WHERE id = ?", (combo_id,))
+            updated_combo = cursor.fetchone()
+            remaining_uses = updated_combo["remaining_uses"] if updated_combo else None
+
+        # Send cancellation email AFTER appointment deletion
+        if customer_email and combo_id:
+            send_appointment_cancellation(
+                customer_name=customer_name,
+                customer_email=customer_email,
+                service=service,
+                date=date,
+                remaining_uses=remaining_uses
+            )
+
         return True
     except Exception as e:
         print(f"Error deleting appointment: {e}")
@@ -141,6 +195,8 @@ def delete_appointment(appointment_id):
     finally:
         conn.close()
 
+
+#function not used as of now, considered for future development
 def edit_appointment(appointment_id, new_date, new_service_id):
     """
     Updates the date and service of an appointment.

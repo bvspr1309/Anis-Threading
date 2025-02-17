@@ -10,6 +10,9 @@ from components.combo import (
 from components.appointment import (
     book_appointment, get_customer_appointments, get_appointment_by_date, delete_appointment, edit_appointment
 )
+from components.notifications import (
+    send_appointment_confirmation, send_appointment_cancellation
+)
 
 # Set the title of the app
 st.title("Ani's Threading and Skincare Management System")
@@ -41,6 +44,7 @@ elif choice == "Customer Management":
     st.write("### Add a New Customer with Combo")
     name = st.text_input("Customer Name")
     phone = st.text_input("Phone Number")
+    email = st.text_input("Email Address")
 
     # Dropdown to select a combo type
     combo_types = get_combo_types()
@@ -53,7 +57,7 @@ elif choice == "Customer Management":
         selected_combo_id = None
 
     if st.button("Add Customer with Combo"):
-        if selected_combo_id and add_customer(name, phone, selected_combo_id):
+        if selected_combo_id and add_customer(name, phone, email, selected_combo_id):
             st.success(f"Customer '{name}' added successfully with combo '{selected_combo}'!")
             st.session_state["search_query"] = phone  # Auto-store newly added customer for quick lookup
             st.rerun()
@@ -86,17 +90,24 @@ elif choice == "Customer Management":
         st.write(f"**ID:** {customer['ID']}")
         st.write(f"**Name:** {customer['Name']}")
         st.write(f"**Phone:** {customer['Phone']} (Phone Number is not editable)")
+        st.write(f"**Email:** {customer['Email']}")
         st.write(f"**Combos:** {customer['Combos']}")
 
         # Edit Customer Button
         with st.expander("Edit Customer"):
             new_name = st.text_input("New Name", customer['Name'])
+            new_email = st.text_input("New Email", customer['Email'])
             new_remaining_uses = st.number_input("Remaining Uses", min_value=0, value=customer['Combos'][0]["remaining_uses"])
 
             if st.button("Update Customer Details"):
-                if edit_customer(customer['ID'], new_name, new_remaining_uses):
+                result = edit_customer(customer['ID'], new_name, new_email, new_remaining_uses)
+
+                if result == 'email_exists':
+                    st.error(f"Failed to update customer. Email '{new_email}' is already in use by another customer.")
+                elif result:
                     st.success(f"Customer {customer['Name']} updated successfully!")
                     st.session_state["customer_data"]["Name"] = new_name  # Update session data
+                    st.session_state["customer_data"]["Email"] = new_email
                     st.session_state["customer_data"]["Combos"][0]["remaining_uses"] = new_remaining_uses  # Update session
                     st.rerun()
                 else:
@@ -125,6 +136,7 @@ elif choice == "Customer Management":
                 st.write(f"**ID:** {customer['ID']}")
                 st.write(f"**Name:** {customer['Name']}")
                 st.write(f"**Phone:** {customer['Phone']}")
+                st.write(f"**Email:** {customer['Email']}")
                 st.write(f"**Combos:** {customer['Combos']}")
                 st.write("---")
         else:
@@ -199,6 +211,15 @@ elif choice == "Appointment Management":
         if st.button("Book Appointment"):
             if book_appointment(customer["ID"], selected_service_id, str(date), use_combo=True, combo_id=selected_combo_id):
                 st.success(f"Appointment booked for {customer['Name']} on {date} with service {selected_service}!")
+                
+                # Send email confirmation if customer has an email
+                if customer["Email"]:
+                    send_appointment_confirmation(
+                        customer["Name"], customer["Email"], selected_service, date,
+                        next(combo["remaining_uses"] for combo in customer["Combos"] if combo["id"] == selected_combo_id)
+                        if selected_combo_id else None
+                    )
+                
                 st.rerun()
             else:
                 st.error("Failed to book appointment.")
@@ -235,12 +256,13 @@ elif choice == "View Appointments":
                 if delete_appointment(appointment['ID']):
                     st.success(f"Appointment ID {appointment['ID']} deleted successfully!")
 
-                    # Refresh list after deletion
-                    st.session_state["appointments"] = get_appointment_by_date(str(st.session_state["selected_date"]))
+                    # Remove deleted appointment from session manually
+                    st.session_state["appointments"] = [
+                        appt for appt in st.session_state["appointments"] if appt["ID"] != appointment["ID"]
+                    ]
                     st.rerun()
                 else:
-                    st.error(f"Failed to delete appointment ID {appointment['ID']}.")
-
-            st.write("---")  # Separator
+                    st.error(f"Failed to Delete the appointment ID {appointment["ID"]}")
+            st.write("---") #seperator
     else:
-        st.write("No appointments found on this date.")
+        st.write("No appointments found on this date")
