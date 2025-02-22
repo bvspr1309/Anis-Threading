@@ -4,10 +4,7 @@ import os
 from email.message import EmailMessage
 from components.combo import get_customer_combos 
 
-# Load environment variables for Gmail SMTP authentication
-
-load_dotenv()
-
+# Load secrets from Streamlit's secrets manager
 SMTP_SERVER = st.secrets["EMAIL_HOST"]  # Fetch from Streamlit secrets
 SMTP_PORT = int(st.secrets["EMAIL_PORT"])  # Convert to int
 EMAIL_ADDRESS = st.secrets["EMAIL_USER"]  # Fetch email user
