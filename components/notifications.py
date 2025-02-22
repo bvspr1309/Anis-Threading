@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
 import smtplib
+import streamlit as st
 import os
 from email.message import EmailMessage
 from components.combo import get_customer_combos 
@@ -8,10 +8,10 @@ from components.combo import get_customer_combos
 
 load_dotenv()
 
-SMTP_SERVER = os.getenv("EMAIL_HOST")  # Gmail SMTP server
-SMTP_PORT = os.getenv("EMAIL_PORT")  # TLS port
-EMAIL_ADDRESS = os.getenv("EMAIL_USER")  # Sender email
-EMAIL_PASSWORD = os.getenv("EMAIL_PASS")  # App password
+SMTP_SERVER = st.secrets["EMAIL_HOST"]  # Fetch from Streamlit secrets
+SMTP_PORT = int(st.secrets["EMAIL_PORT"])  # Convert to int
+EMAIL_ADDRESS = st.secrets["EMAIL_USER"]  # Fetch email user
+EMAIL_PASSWORD = st.secrets["EMAIL_PASS"]  # Fetch email password
 
 
 def load_email_template(template_name, placeholders):
