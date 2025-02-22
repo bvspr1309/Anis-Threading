@@ -6,7 +6,11 @@
 <body>
     <p>Dear {{CUSTOMER_NAME}},</p>
     <p>Your appointment with <b>Ani's Threading & Skincare</b> for the service <b>{{SERVICE}}</b> on <b>{{DATE}}</b> has been cancelled.</p>
-    <p>Your combo uses have been restored. You now have <b>{{REMAINING_USES}}</b> remaining uses.</p>
+
+    <p>Here is a summary of your updated combo usage:</p>
+
+    {{COMBO_TABLE}}  <!-- This will dynamically insert the formatted HTML table -->
+
     <p>We apologize for any inconvenience.</p>
     <p>Thank you for choosing Ani's Threading & Skincare!</p>
 </body>

@@ -1,12 +1,17 @@
+from dotenv import load_dotenv
 import smtplib
 import os
 from email.message import EmailMessage
+from components.combo import get_customer_combos 
 
 # Load environment variables for Gmail SMTP authentication
-SMTP_SERVER = "smtp.gmail.com"  # Gmail SMTP server
-SMTP_PORT = 587  # TLS port
-EMAIL_ADDRESS = "anisthreadingnskincare@gmail.com"  # Sender email
-EMAIL_PASSWORD = "sgrq nurt bnli fbun"  # App password
+
+load_dotenv()
+
+SMTP_SERVER = os.getenv("EMAIL_HOST")  # Gmail SMTP server
+SMTP_PORT = os.getenv("EMAIL_PORT")  # TLS port
+EMAIL_ADDRESS = os.getenv("EMAIL_USER")  # Sender email
+EMAIL_PASSWORD = os.getenv("EMAIL_PASS")  # App password
 
 
 def load_email_template(template_name, placeholders):
@@ -71,7 +76,42 @@ def send_email(subject, to_email, email_body):
         return False
 
 
-def send_appointment_confirmation(customer_name, customer_email, service, date, remaining_uses):
+def format_combo_table(customer_id):
+    """
+    Fetches the customer's combos and formats them as an HTML table.
+
+    Args:
+        customer_id (int): The ID of the customer.
+        booked_combo_id (int, optional): The ID of the combo used for booking. Default is None.
+
+    Returns:
+        str: Formatted HTML table of customer's combos.
+    """
+    combos = get_customer_combos(customer_id)
+    if not combos:
+        return "No active combos"
+
+    table_html = """
+    <table border="1" cellpadding="5" cellspacing="0">
+        <tr>
+            <th>Combo Name</th>
+            <th>Remaining Uses</th>
+        </tr>
+    """
+
+    for combo in combos:
+        table_html += f"""
+        <tr>
+            <td>{combo["name"]}</td>
+            <td>{combo["remaining_uses"]}</td>
+        </tr>
+        """
+
+    table_html += "</table>"
+    return table_html
+
+
+def send_appointment_confirmation(customer_id, customer_name, customer_email, service, date, booked_combo_id):
     """
     Sends an appointment confirmation email to the customer.
 
@@ -82,18 +122,45 @@ def send_appointment_confirmation(customer_name, customer_email, service, date, 
         date (str): The appointment date (YYYY-MM-DD).
         remaining_uses (int): The remaining uses in the combo.
     """
+    combos = get_customer_combos(customer_id)
+
+    #Apply -1 for remaining uses due to email error (lazy way, need to work in future)
+    for combo in combos:
+        if combo["id"] == booked_combo_id:
+            combo["remaining_uses"] -= 1
+
+    # #Generate Table with updated values
+    # combo_table = """
+    # <table border = "1" cellpadding = "5" cellspacing = "0">
+    #     <tr>
+    #         <th>Combo Name</th>
+    #         <th>Remaining Uses</th>
+    #     </tr>
+    # """
+    # for combo in combos:
+    #     combo_table += f"""
+    #     <tr>
+    #         <td>{combo["name"]}</td>
+    #         <td>{combo["remaining_uses"]}</td>
+    #     </tr>
+    #     """
+    # combo_table += "</table>"
+
+    #get latest combo data
+    combo_table = format_combo_table(customer_id)
+
     placeholders = {
         "CUSTOMER_NAME": customer_name,
         "SERVICE": service,
         "DATE": date,
-        "REMAINING_USES": remaining_uses
+        "COMBO_TABLE": combo_table #insert the table into the email
     }
     email_body = load_email_template("appointment_confirmation.html", placeholders)
     if email_body:
         send_email("Appointment Confirmation - Ani's Threading & Skincare", customer_email, email_body)
 
 
-def send_appointment_cancellation(customer_name, customer_email, service, date, remaining_uses):
+def send_appointment_cancellation(customer_id, customer_name, customer_email, service, date):
     """
     Sends an appointment cancellation email to the customer.
 
@@ -104,11 +171,14 @@ def send_appointment_cancellation(customer_name, customer_email, service, date, 
         date (str): The appointment date (YYYY-MM-DD).
         remaining_uses (int): The restored combo uses.
     """
+    #get latest combo data
+    combo_table = format_combo_table(customer_id)
+
     placeholders = {
         "CUSTOMER_NAME": customer_name,
         "SERVICE": service,
         "DATE": date,
-        "REMAINING_USES": remaining_uses
+        "COMBO_TABLE": combo_table #insert table in to email
     }
     email_body = load_email_template("appointment_cancellation.html", placeholders)
     if email_body:

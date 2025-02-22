@@ -1,4 +1,6 @@
 import sqlite3
+import csv
+import os
 from components.combo import add_combo, get_customer_combos, get_db_connection
 
 # ============================
@@ -93,8 +95,8 @@ def get_all_customers():
     finally:
         conn.close()
 
-def edit_customer(customer_id, new_name, new_email, new_remaining_uses):
-    """Edits a customer's name and updates their remaining combo uses, but keeps phone number fixed."""
+def edit_customer(customer_id, new_name, new_email):
+    """Edits a customer's name and updates their Email Address, but keeps phone number fixed."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -120,14 +122,6 @@ def edit_customer(customer_id, new_name, new_email, new_remaining_uses):
                SET name = ?, email = ? 
                WHERE id = ?""",
             (new_name, new_email, customer_id)
-        )
-
-        # Update remaining uses in combos
-        cursor.execute(
-            """UPDATE combos 
-               SET remaining_uses = ? 
-               WHERE customer_id = ?""",
-            (new_remaining_uses, customer_id)
         )
 
         conn.commit()
@@ -189,5 +183,107 @@ def remove_customer_if_combos_used_up(customer_id):
     except Exception as e:
         print(f"Error checking customer combos: {e}")
         return False
+    finally:
+        conn.close()
+
+
+def add_combo_to_existing_customer(customer_id, combo_type_id):
+    """Adds a new combo to an existing customer."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Ensure customer exists
+        cursor.execute("SELECT id FROM customers WHERE id = ?", (customer_id,))
+        customer = cursor.fetchone()
+        if not customer:
+            print(f"Error: Customer ID {customer_id} does not exist.")
+            return False
+
+        # Add the new combo
+        if not add_combo(customer_id, combo_type_id, conn):
+            raise Exception("Failed to add the new combo.")
+
+        conn.commit()
+        print(f"New combo (ID {combo_type_id}) added for Customer ID {customer_id} successfully!")
+        return True
+    except Exception as e:
+        print(f"Error adding combo: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def remove_combo_from_customer(customer_id, combo_id):
+    """Removes a specific combo from a customer's profile."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Ensure combo exists for the customer
+        cursor.execute("SELECT id FROM combos WHERE id = ? AND customer_id = ?", (combo_id, customer_id))
+        combo = cursor.fetchone()
+        if not combo:
+            print(f"Error: Combo ID {combo_id} not found for Customer ID {customer_id}.")
+            return False
+
+        # Delete the combo
+        cursor.execute("DELETE FROM combos WHERE id = ?", (combo_id,))
+        conn.commit()
+        print(f"Combo ID {combo_id} removed from Customer ID {customer_id}.")
+        return True
+    except Exception as e:
+        print(f"Error removing combo: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def export_customers_to_csv():
+    """
+    Exports all customer data into a CSV file and returns the file path.
+    
+    Returns:
+        str: Path of the exported CSV file.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Retrieve all customers and their assigned combos
+        cursor.execute("SELECT id, name, email, phone FROM customers")
+        customers = cursor.fetchall()
+
+        if not customers:
+            print("No customers found for export.")
+            return None
+
+        csv_filename = "customers_data.csv"
+        csv_filepath = os.path.join(os.getcwd(), csv_filename)
+
+        with open(csv_filepath, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Customer ID", "Customer Name", "Email", "Ph.no", "Combos for the customer", "Remaining uses"])
+
+            for customer in customers:
+                customer_id = customer["id"]
+                name = customer["name"]
+                email = customer["email"]
+                phone = customer["phone"]
+
+                # Fetch combos for the customer
+                customer_combos = get_customer_combos(customer_id)
+                if customer_combos:
+                    combo_names = ", ".join([combo["name"] for combo in customer_combos])
+                    remaining_uses = ", ".join([str(combo["remaining_uses"]) for combo in customer_combos])
+                else:
+                    combo_names = "No combos"
+                    remaining_uses = "N/A"
+
+                writer.writerow([customer_id, name, email, phone, combo_names, remaining_uses])
+
+        print(f"Customer data exported successfully: {csv_filepath}")
+        return csv_filepath
+
+    except Exception as e:
+        print(f"Error exporting customers to CSV: {e}")
+        return None
     finally:
         conn.close()

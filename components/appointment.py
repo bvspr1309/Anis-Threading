@@ -181,11 +181,11 @@ def delete_appointment(appointment_id):
         # Send cancellation email AFTER appointment deletion
         if customer_email and combo_id:
             send_appointment_cancellation(
+                customer_id=customer_id,
                 customer_name=customer_name,
                 customer_email=customer_email,
                 service=service,
-                date=date,
-                remaining_uses=remaining_uses
+                date=date
             )
 
         return True

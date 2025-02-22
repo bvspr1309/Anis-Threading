@@ -1,8 +1,9 @@
 import datetime
 import streamlit as st
+import pandas as pd
 from components.customer import (
     add_customer, get_customer_by_phone, get_all_customers, remove_customer_if_combos_used_up,
-    edit_customer, delete_customer
+    edit_customer, delete_customer, add_combo_to_existing_customer, remove_combo_from_customer, export_customers_to_csv
 )
 from components.combo import (
     add_combo_type, get_combo_types, delete_combo_type, get_customer_combos, add_combo, get_services_for_combo
@@ -18,7 +19,7 @@ from components.notifications import (
 st.title("Ani's Threading and Skincare Management System")
 
 # Sidebar menu
-menu = ["Home", "Customer Management", "Combo Management", "Appointment Management", "View Appointments"]
+menu = ["Home", "Customer Management", "Customer N Combo", "Appointment Management", "View Appointments", "Download Data", "Combo Management"]
 choice = st.sidebar.selectbox("Menu", menu)
 
 # ============================
@@ -97,10 +98,9 @@ elif choice == "Customer Management":
         with st.expander("Edit Customer"):
             new_name = st.text_input("New Name", customer['Name'])
             new_email = st.text_input("New Email", customer['Email'])
-            new_remaining_uses = st.number_input("Remaining Uses", min_value=0, value=customer['Combos'][0]["remaining_uses"])
 
             if st.button("Update Customer Details"):
-                result = edit_customer(customer['ID'], new_name, new_email, new_remaining_uses)
+                result = edit_customer(customer['ID'], new_name, new_email)
 
                 if result == 'email_exists':
                     st.error(f"Failed to update customer. Email '{new_email}' is already in use by another customer.")
@@ -108,7 +108,6 @@ elif choice == "Customer Management":
                     st.success(f"Customer {customer['Name']} updated successfully!")
                     st.session_state["customer_data"]["Name"] = new_name  # Update session data
                     st.session_state["customer_data"]["Email"] = new_email
-                    st.session_state["customer_data"]["Combos"][0]["remaining_uses"] = new_remaining_uses  # Update session
                     st.rerun()
                 else:
                     st.error("Failed to update customer.")
@@ -127,56 +126,62 @@ elif choice == "Customer Management":
                 st.error("Failed to delete customer. Customer might not exist.")
 
 
-    # Show all customers on button click
-    if st.button("Show All Customers"):
-        st.write("### All Customers")
-        customers = get_all_customers()
-        if customers:
-            for customer in customers:
-                st.write(f"**ID:** {customer['ID']}")
-                st.write(f"**Name:** {customer['Name']}")
-                st.write(f"**Phone:** {customer['Phone']}")
-                st.write(f"**Email:** {customer['Email']}")
-                st.write(f"**Combos:** {customer['Combos']}")
-                st.write("---")
-        else:
-            st.write("No customers found.")
-
 # ============================
-# Combo Management
+# Customer N Combo Management
 # ============================
-elif choice == "Combo Management":
-    st.subheader("Combo Management")
+elif choice == "Customer N Combo":
+    st.subheader("Customer & Combo Management")
 
-    # Add a new combo type
-    st.write("### Add a New Combo Type")
-    combo_name = st.text_input("Combo Name")
-    total_uses = st.number_input("Total Uses", min_value=1, step=1)
+    # Search for customer by phone
+    st.write("### Search for a Customer")
+    phone = st.text_input("Enter Customer Phone Number")
 
-    all_services = get_services_for_combo(None)
-    service_options = {service['name']: service['id'] for service in all_services}
-    selected_services = st.multiselect("Select Services for Combo", list(service_options.keys()))
-
-    if st.button("Add Combo Type"):
-        selected_service_ids = [service_options[service] for service in selected_services]
-        if add_combo_type(combo_name, selected_service_ids, total_uses):
-            st.success(f"Combo type '{combo_name}' added successfully with services {selected_services}!")
-            st.rerun()
+    if st.button("Search Customer"):
+        customer = get_customer_by_phone(phone)
+        if customer:
+            st.session_state["customer_data"] = customer
         else:
-            st.error("Failed to add the combo type. It may already exist.")
+            st.error("Customer not found.")
 
-    # View, edit, and delete combo types
-    st.write("### Existing Combo Types")
-    combo_types = get_combo_types()
-    if combo_types:
-        for combo in combo_types:
-            st.write(f"**ID:** {combo['id']}, **Name:** {combo['name']}, **Total Uses:** {combo['total_uses']}")
-            if st.button(f"Delete Combo '{combo['name']}'", key=f"delete_combo_{combo['id']}"):
-                if delete_combo_type(combo['id']):
-                    st.success(f"Combo '{combo['name']}' deleted successfully!")
+    # Display and manage customer combos
+    if "customer_data" in st.session_state and st.session_state["customer_data"]:
+        customer = st.session_state["customer_data"]
+        st.write(f"**Customer Name:** {customer['Name']}")
+        st.write(f"**Phone:** {customer['Phone']}")
+        st.write(f"**Email:** {customer['Email']}")
+
+        # Display customer's current combos
+        st.write("### Combos for the Customer:")
+        if customer["Combos"]:
+            for combo in customer["Combos"]:
+                st.write(f"- {combo['name']} ({combo['remaining_uses']})")
+            
+            # Remove a combo
+            combo_options = {f"{combo['name']}": combo["id"] for combo in customer["Combos"]}
+            selected_combo_to_remove = st.selectbox("Select a Combo to Remove", options=list(combo_options.keys()))
+
+            if st.button("Remove Selected Combo"):
+                if remove_combo_from_customer(customer["ID"], combo_options[selected_combo_to_remove]):
+                    st.success(f"Combo '{selected_combo_to_remove}' removed successfully.")
                     st.rerun()
                 else:
-                    st.error(f"Failed to delete combo '{combo['name']}'.")
+                    st.error("Failed to remove combo.")
+
+        else:
+            st.write("No active combos.")
+
+        # Add a new combo
+        st.write("### Add a New Combo for This Customer")
+        available_combos = get_combo_types()
+        combo_selection = {f"{combo['name']} (Uses: {combo['total_uses']})": combo['id'] for combo in available_combos}
+        new_combo_selected = st.selectbox("Select a New Combo", options=list(combo_selection.keys()))
+
+        if st.button("Add Selected Combo"):
+            if add_combo_to_existing_customer(customer["ID"], combo_selection[new_combo_selected]):
+                st.success(f"New combo '{new_combo_selected}' added successfully!")
+                st.rerun()
+            else:
+                st.error("Failed to add combo.")
 
 # ============================
 # Appointment Management
@@ -215,9 +220,12 @@ elif choice == "Appointment Management":
                 # Send email confirmation if customer has an email
                 if customer["Email"]:
                     send_appointment_confirmation(
-                        customer["Name"], customer["Email"], selected_service, date,
-                        next(combo["remaining_uses"] for combo in customer["Combos"] if combo["id"] == selected_combo_id)
-                        if selected_combo_id else None
+                        customer["ID"], # Pass customer ID
+                        customer["Name"],
+                        customer["Email"],
+                        selected_service,
+                        date,
+                        selected_combo_id #pass the booked combo ID
                     )
                 
                 st.rerun()
@@ -266,3 +274,62 @@ elif choice == "View Appointments":
             st.write("---") #seperator
     else:
         st.write("No appointments found on this date")
+
+
+# ============================
+# Download Data Tab
+# ============================
+if choice == "Download Data":
+    st.subheader("Download Customer Data")
+    st.write("Click the button below to download all customer data as a CSV file.")
+
+    if st.button("Download All Customers Data"):
+        csv_filepath = export_customers_to_csv()
+        if csv_filepath:
+            with open(csv_filepath, "rb") as file:
+                st.download_button(
+                    label="Download CSV",
+                    data=file,
+                    file_name="customers_data.csv",
+                    mime="text/csv"
+                )
+            st.success("Customer data is ready for download!")
+        else:
+            st.error("No customer data available.")
+
+
+# ============================
+# Combo Management
+# ============================
+elif choice == "Combo Management":
+    st.subheader("Combo Management")
+
+    # Add a new combo type
+    st.write("### Add a New Combo Type")
+    combo_name = st.text_input("Combo Name")
+    total_uses = st.number_input("Total Uses", min_value=1, step=1)
+
+    all_services = get_services_for_combo(None)
+    service_options = {service['name']: service['id'] for service in all_services}
+    selected_services = st.multiselect("Select Services for Combo", list(service_options.keys()))
+
+    if st.button("Add Combo Type"):
+        selected_service_ids = [service_options[service] for service in selected_services]
+        if add_combo_type(combo_name, selected_service_ids, total_uses):
+            st.success(f"Combo type '{combo_name}' added successfully with services {selected_services}!")
+            st.rerun()
+        else:
+            st.error("Failed to add the combo type. It may already exist.")
+
+    # View, edit, and delete combo types
+    st.write("### Existing Combo Types")
+    combo_types = get_combo_types()
+    if combo_types:
+        for combo in combo_types:
+            st.write(f"**ID:** {combo['id']}, **Name:** {combo['name']}, **Total Uses:** {combo['total_uses']}")
+            if st.button(f"Delete Combo '{combo['name']}'", key=f"delete_combo_{combo['id']}"):
+                if delete_combo_type(combo['id']):
+                    st.success(f"Combo '{combo['name']}' deleted successfully!")
+                    st.rerun()
+                else:
+                    st.error(f"Failed to delete combo '{combo['name']}'.")

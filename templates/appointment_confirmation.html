@@ -6,9 +6,14 @@
 <body>
     <p>Dear {{CUSTOMER_NAME}},</p>
     <p>Your appointment with <b>Ani's Threading & Skincare</b> has been confirmed.</p>
+    
     <p><b>Service:</b> {{SERVICE}}</p>
     <p><b>Date:</b> {{DATE}}</p>
-    <p>You have used your combo to book this appointment. You have <b>{{REMAINING_USES}}</b> uses left.</p>
+
+    <p>Here is a summary of your combo usage:</p>
+
+    {{COMBO_TABLE}}  <!-- This will insert the formatted HTML table dynamically -->
+
     <p>Thank you for choosing Ani's Threading & Skincare!</p>
 </body>
 </html>
