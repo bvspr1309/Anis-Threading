@@ -297,6 +297,46 @@ if choice == "Download Data":
         else:
             st.error("No customer data available.")
 
+    st.subheader("Database Backup")
+    st.write("Click the button below to download a backup of the entire database. Use this backup to restore data if needed.")
+    try:
+        with open("database/business.db", "rb") as db_file:
+            st.download_button(
+                label="Download Database Backup",
+                data=db_file,
+                file_name="business_backup.db",
+                mime="application/octet-stream"
+            )
+    except FileNotFoundError:
+        st.error("Database file not found. Please ensure the file 'database/business.db' exists.")
+    except Exception as e:
+        st.error(f"An error occurred while backing up the database: {e}")
+
+    st.write("---")
+
+    # ---- New Database Restore Section ----
+    st.subheader("Restore Database Backup")
+    st.write("Upload the database backup file you previously downloaded. This will overwrite the current database. **Warning:** This action will replace all current data.")
+
+    uploaded_file = st.file_uploader("Upload Database Backup", type=["db"])
+    if uploaded_file is not None:
+        if st.button("Restore Database"):
+            # Optional: Backup current database before overwriting (for extra safety)
+            try:
+                import shutil
+                backup_path = "database/business_backup_before_restore.db"
+                shutil.copyfile("database/business.db", backup_path)
+                st.info("A backup of the current database was saved as 'business_backup_before_restore.db'.")
+            except Exception as backup_error:
+                st.warning(f"Could not backup the current database before restore: {backup_error}")
+
+            try:
+                # Overwrite the current database file with the uploaded backup
+                with open("database/business.db", "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                st.success("Database restored successfully! Please restart the app for changes to take effect.")
+            except Exception as e:
+                st.error(f"Error restoring database: {e}")
 
 # ============================
 # Combo Management
