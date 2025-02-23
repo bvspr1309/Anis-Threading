@@ -297,6 +297,11 @@ if choice == "Download Data":
         else:
             st.error("No customer data available.")
 
+    st.write("---")
+    
+# ---- Warning Notice for Admin Only ----
+    st.warning("Do Not Use. (For Admin use Only)")
+
     st.subheader("Database Backup")
     st.write("Click the button below to download a backup of the entire database. Use this backup to restore data if needed.")
     try:
@@ -313,10 +318,6 @@ if choice == "Download Data":
         st.error(f"An error occurred while backing up the database: {e}")
 
     st.write("---")
-
-
-# ---- Warning Notice for Admin Only ----
-    st.warning("Do Not Use. (For Admin use Only)")
 
     # ---- New Database Restore Section ----
     st.subheader("Restore Database Backup")
