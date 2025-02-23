@@ -314,6 +314,10 @@ if choice == "Download Data":
 
     st.write("---")
 
+
+# ---- Warning Notice for Admin Only ----
+    st.warning("Do Not Use. (For Admin use Only)")
+
     # ---- New Database Restore Section ----
     st.subheader("Restore Database Backup")
     st.write("Upload the database backup file you previously downloaded. This will overwrite the current database. **Warning:** This action will replace all current data.")
